@@ -61,12 +61,15 @@ module.exports = {
     height: '5px',
     rtl: true,
   },
-  env: {
-    SERVER_URL: 'https://api.yektour.com',
-  },
-  router: { middleware: ['autoLogin'] },
+  router: {},
   // Build Configuration: https://go.nuxtjs.dev/config-build
   build: {
-    transpile: ['num2persian'],
+    transpile: [
+      'three',
+      'three/examples/jsm/controls/OrbitControls',
+      'dat.gui',
+      'three/examples/jsm/loaders/FontLoader',
+      'three/examples/jsm/helpers/RectAreaLightHelper'
+    ],
   },
 };
