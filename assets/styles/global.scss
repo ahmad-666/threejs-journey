@@ -1,0 +1,251 @@
+// @font-face {
+//   src: url('/fonts/DanaFaNum-Light.woff2');
+//   font-family: danaLight;
+// }
+// //set light font-family:
+// .v-application {
+//   .font-weight-light {
+//     font-family: danaLight, 'Roboto' !important;
+//   }
+// }
+//scss variables-----------------------------
+//scss variables-----------------------------
+// $opacity-bg: #FFFFFF;
+// .dark-opacity-bg {
+//   background-color: $opacity-bg;
+// }
+//Global Styles-------------------------------
+//Global Styles-------------------------------
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  &::before,
+  &::after {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+  }
+}
+html {
+  overflow-y: initial !important;
+  overflow-x: initial !important;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  // font-size: 10px;
+  overflow-x: hidden;
+}
+body.hide-scroll {
+  overflow: hidden;
+}
+a {
+  text-decoration: none;
+  cursor: pointer;
+}
+ul {
+  list-style: none;
+}
+button {
+  border: none;
+  cursor: pointer;
+  &:focus {
+    outline: none;
+  }
+}
+input,
+textarea {
+  border: none;
+  &:focus {
+    outline: none;
+  }
+}
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+input[type='tel'],
+input[type='number'],
+input[type='email'],
+input[type='date'] {
+  direction: ltr !important;
+}
+
+body .v-application p {
+  margin-bottom: 0px;
+}
+
+
+.container {
+  max-width: initial !important;
+}
+.width-100 {
+  width: 100% !important;
+}
+.width-50 {
+  width: 50% !important;
+}
+.width-fit-content {
+  width: fit-content !important;
+}
+.max-width-100 {
+  max-width: 100% !important;
+}
+.min-width-100 {
+  min-width: 100% !important;
+}
+.height-100 {
+  height: 100% !important;
+}
+.max-height-100 {
+  max-height: 100% !important;
+}
+.min-height-100 {
+  min-height: 100% !important;
+}
+.height-auto {
+  height: auto !important;
+}
+.z-index-1 {
+  z-index: 1 !important;
+}
+.z-index-2 {
+  z-index: 2 !important;
+}
+.z-index-3 {
+  z-index: 3 !important;
+}
+.z-index-4 {
+  z-index: 4 !important;
+}
+.z-index-5 {
+  z-index: 5 !important;
+}
+.z-index-6 {
+  z-index: 6 !important;
+}
+.z-index-7 {
+  z-index: 7 !important;
+}
+.flex-order-0 {
+  order: 0 !important;
+}
+.flex-order-1 {
+  order: 1 !important;
+}
+.flex-order-2 {
+  order: 2 !important;
+}
+.flex-order-3 {
+  order: 3 !important;
+}
+.flex-order-4 {
+  order: 4 !important;
+}
+.flex-order-5 {
+  order: 5 !important;
+}
+.flex-order-6 {
+  order: 6 !important;
+}
+.position-relative {
+  position: relative !important;
+}
+.position-absolute {
+  position: absolute !important;
+}
+.position-fixed {
+  position: fixed !important;
+}
+.position-sticky {
+  position: sticky !important;
+}
+.cursor-pointer {
+  cursor: pointer !important;
+}
+.direction-ltr {
+  direction: ltr !important;
+}
+.direction-rtl {
+  direction: rtl !important;
+}
+.form-elm-direction-ltr {
+  input {
+    direction: ltr !important;
+  }
+}
+.object-fit-cover {
+  object-fit: cover !important;
+}
+.pointer-events-none {
+  pointer-events: none !important;
+}
+.pointer-events-initial {
+  pointer-events: initial !important;
+}
+.overflow-hidden {
+  overflow: hidden !important;
+}
+.overflow-auto {
+  overflow: auto !important;
+}
+.no-active {
+  &::before {
+    background-color: transparent !important;
+  }
+}
+.opacity-1 {
+  opacity: 1 !important;
+}
+.opacity-0 {
+  opacity: 0 !important;
+}
+.break-word {
+  word-break: break-word !important;
+}
+.custom-scroll {
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: orange;
+    border-radius: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background-color: #4a495b;
+  }
+  & {
+    //just for firefox
+    scrollbar-width: thin; //thin | auto
+    scrollbar-color: orange #4a495b; //first scrollbar , second track
+  }
+}
+.white-space-nowrap {
+  white-space: nowrap !important;
+}
+.white-space-initial {
+  white-space: initial !important;
+}
+.work-break-break-word {
+  word-break: break-word !important;
+}
+.overflow-wrap-break-word {
+  overflow-wrap: break-word !important ;
+}
+@media screen and (max-width: 1300px) {
+  .main-container {
+    width: 90% !important;
+  }
+}
+@media screen and (max-width: 750px) {
+  .main-container {
+    width: 95% !important;
+  }
+}
