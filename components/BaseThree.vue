@@ -5,6 +5,7 @@
 </template>
 <script>
 import * as THREE from 'three';
+import CANNON from 'cannon';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 export default {
   data() {
@@ -16,12 +17,52 @@ export default {
       height: null,
       renderer: null,
       clock: new THREE.Clock(),
+      oldTime: 0,
       controls: null,
       gui: null,
-      floor: null,
-      sphere: null,
+      plane: null,
+      planeBody: null,
+      objects: [],
+      physicsWorld: null,
+      defaultMaterial: null,
+      contactMaterial: null,
       ambientLight: null,
       directionalLight: null,
+      audio: new Audio('/sounds/hit.mp3'),
+      standardMaterial: new THREE.MeshStandardMaterial({
+        metalness: 0.3,
+        roughness: 0.4,
+      }),
+      sphereGeometry: new THREE.SphereBufferGeometry(1),
+      boxGeometry: new THREE.BoxBufferGeometry(1, 1, 1),
+      debugObj: {
+        createSphere: () => {
+          this.createSphere(Math.random(), {
+            x: (Math.random() - 0.5) * 2,
+            y: Math.random() * 2,
+            z: (Math.random() - 0.5) * 2,
+          });
+        },
+        createBox: () => {
+          this.createBox(
+            Math.random() * 3,
+            Math.random() * 3,
+            Math.random() * 3,
+            {
+              x: (Math.random() - 0.5) * 3,
+              y: Math.random() * 3,
+              z: (Math.random() - 0.5) * 3,
+            }
+          );
+        },
+        reset: () => {
+          this.objects.forEach(obj => {
+            obj.body.removeEventListener('collide', this.playSound);
+            this.physicsWorld.removeBody(obj.body);
+            this.scene.remove(obj.mesh);
+          });
+        },
+      },
     };
   },
   computed: {
@@ -36,13 +77,16 @@ export default {
     this.height = window.innerHeight;
     this.createScene();
     this.createMeshes();
+    this.createPhysicsWorld();
+    this.createPhysicsMaterials();
+    this.createBodies();
     this.createLight();
     this.createCamera();
     this.createRenderer();
     this.animate();
     this.addGui();
     window.addEventListener('resize', this.windowResize);
-    window.addEventListener('dblclick', this.windowFullScreen);
+    // window.addEventListener('dblclick', this.windowFullScreen);
   },
   beforeDestroy() {
     this.gui.destroy();
@@ -99,7 +143,7 @@ export default {
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     },
     createMeshes() {
-      this.floor = new THREE.Mesh(
+      this.plane = new THREE.Mesh(
         new THREE.PlaneBufferGeometry(10, 10),
         new THREE.MeshStandardMaterial({
           color: '#777777',
@@ -107,19 +151,43 @@ export default {
           roughness: 0.4,
         })
       );
-      this.floor.receiveShadow = true;
-      this.floor.rotation.x = -Math.PI * 0.5;
-      this.scene.add(this.floor);
-      this.sphere = new THREE.Mesh(
-        new THREE.SphereBufferGeometry(0.5, 32, 32),
-        new THREE.MeshStandardMaterial({
-          metalness: 0.3,
-          roughness: 0.4,
-        })
+      this.plane.receiveShadow = true;
+      this.plane.position.z = -3;
+      this.plane.rotation.x = -Math.PI * 0.5;
+      this.scene.add(this.plane);
+    },
+    createPhysicsWorld() {
+      this.physicsWorld = new CANNON.World();
+      this.physicsWorld.gravity.set(0, -9.82, 0);
+      this.physicsWorld.broadphase = new CANNON.SAPBroadphase(
+        this.physicsWorld
       );
-      this.sphere.castShadow = true;
-      this.sphere.position.y = 0.5;
-      this.scene.add(this.sphere);
+      this.physicsWorld.allowSleep = true;
+    },
+    createPhysicsMaterials() {
+      this.defaultMaterial = new CANNON.Material('default');
+      this.contactMaterial = new CANNON.ContactMaterial(
+        this.defaultMaterial,
+        this.defaultMaterial,
+        {
+          friction: 0.1,
+          restitution: 0.75,
+        }
+      );
+      this.physicsWorld.addContactMaterial(this.contactMaterial);
+    },
+    createBodies() {
+      this.planeBody = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Plane(),
+        material: this.defaultMaterial,
+      });
+      this.planeBody.quaternion.setFromAxisAngle(
+        new CANNON.Vec3(1, 0, 0),
+        -Math.PI * 0.5
+      );
+      this.planeBody.position.z = -3;
+      this.physicsWorld.add(this.planeBody);
     },
     createLight() {
       this.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -135,13 +203,66 @@ export default {
       this.directionalLight.position.set(5, 5, 5);
       this.scene.add(this.directionalLight);
     },
+    createSphere(radius, position) {
+      const mesh = new THREE.Mesh(this.sphereGeometry, this.standardMaterial);
+      mesh.scale.set(radius, radius, radius);
+      mesh.castShadow = true;
+      mesh.position.copy(position);
+      this.scene.add(mesh);
+      const body = new CANNON.Body({
+        mass: 1,
+        shape: new CANNON.Sphere(radius),
+        position,
+        material: this.defaultMaterial,
+      });
+      body.addEventListener('collide', this.playSound);
+      this.physicsWorld.addBody(body);
+      this.objects.push({ mesh, body });
+    },
+    createBox(width, height, depth, position) {
+      const mesh = new THREE.Mesh(this.boxGeometry, this.standardMaterial);
+      mesh.scale.set(width, height, depth);
+      mesh.castShadow = true;
+      mesh.position.copy(position);
+      this.scene.add(mesh);
+      const body = new CANNON.Body({
+        mass: 1,
+        shape: new CANNON.Box(
+          new CANNON.Vec3(width / 2, height / 2, depth / 2)
+        ),
+        position,
+        material: this.defaultMaterial,
+      });
+      body.addEventListener('collide', this.playSound);
+      this.physicsWorld.addBody(body);
+      this.objects.push({ mesh, body });
+    },
+    playSound(e) {
+      const impact = e.contact.getImpactVelocityAlongNormal();
+      if (impact > 2) {
+        this.audio.volume = Math.random();
+        this.audio.currentTime = 0;
+        this.audio.play();
+      }
+    },
     animate() {
-      // const elapsedTime = this.clock.getElapsedTime();
+      const elapsedTime = this.clock.getElapsedTime();
+      const deltaTime = elapsedTime - this.oldTime;
+      this.oldTime = elapsedTime;
+      this.physicsWorld.step(1 / 60, deltaTime, 3);
+      this.objects.forEach(obj => {
+        obj.mesh.position.copy(obj.body.position);
+        obj.mesh.quaternion.copy(obj.body.quaternion);
+      });
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
       window.requestAnimationFrame(this.animate);
     },
-    addGui() {},
+    addGui() {
+      this.gui.add(this.debugObj, 'createSphere');
+      this.gui.add(this.debugObj, 'createBox');
+      this.gui.add(this.debugObj, 'reset');
+    },
   },
 };
 </script>
