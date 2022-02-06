@@ -91,3 +91,4 @@ sw.*
 # Vim swap files
 *.swp
 static/models/FlightHelmet
+static/environmentMaps

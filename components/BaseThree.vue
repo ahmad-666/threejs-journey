@@ -7,7 +7,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 export default {
   data() {
     return {
@@ -18,15 +17,16 @@ export default {
       height: null,
       renderer: null,
       clock: new THREE.Clock(),
-      oldTime: 0,
       controls: null,
       gui: null,
       ambientLight: null,
       directionalLight: null,
-      debugObj: {},
+      debugObj: {
+        envMapIntensity: 5,
+      },
       gltfLoader: null,
-      draco: null,
-      animationMixer: null,
+      gltf: null,
+      envMap: null,
     };
   },
   computed: {
@@ -39,6 +39,7 @@ export default {
     this.gui = new dat.GUI();
     this.width = window.innerWidth;
     this.height = window.innerHeight;
+    this.createEnvMap();
     this.createScene();
     this.createMeshes();
     this.createLight();
@@ -78,6 +79,7 @@ export default {
     },
     createScene() {
       this.scene = new THREE.Scene();
+      this.scene.background = this.envMap;
     },
     createCamera() {
       this.camera = new THREE.PerspectiveCamera(
@@ -94,6 +96,7 @@ export default {
     createRenderer() {
       this.renderer = new THREE.WebGLRenderer({
         canvas: this.$refs.canvas,
+        antialias: true,
       });
       this.renderer.setSize(this.width, this.height);
       this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
@@ -102,24 +105,36 @@ export default {
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       this.renderer.setSize(this.width, this.height);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.physicallyCorrectLights = true;
+      this.renderer.outputEncoding = THREE.sRGBEncoding;
+      this.renderer.toneMapping = THREE.LinearToneMapping;
+      this.renderer.toneMappingExposure = 1;
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     },
     createMeshes() {
-      this.draco = new DRACOLoader();
-      this.draco.setDecoderPath('/draco/');
       this.gltfLoader = new GLTFLoader();
-      this.gltfLoader.setDRACOLoader(this.draco);
-      this.gltfLoader.load('/models/Fox/glTF/Fox.gltf', gltf => {
-        this.animationMixer = new THREE.AnimationMixer(gltf.scene);
-        const runAnimation = this.animationMixer.clipAction(gltf.animations[0]);
-        runAnimation.play();
-        gltf.scene.scale.set(0.02, 0.02, 0.02);
-        this.scene.add(gltf.scene);
-      });
+      this.gltfLoader.load(
+        '/models/FlightHelmet/glTF/FlightHelmet.gltf',
+        gltf => {
+          gltf.scene.scale.set(4, 4, 4);
+          gltf.scene.position.y = -2;
+          gltf.scene.rotation.y = Math.PI * 0.1;
+          this.scene.add(gltf.scene);
+          this.gltf = gltf;
+          this.gui
+            .add(this.gltf.scene.rotation, 'y')
+            .min(-Math.PI)
+            .max(Math.PI)
+            .step(0.01);
+          this.updateMaterials();
+        }
+      );
     },
     createLight() {
-      this.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-      this.scene.add(this.ambientLight);
-      this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.2);
+      // this.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      // this.scene.add(this.ambientLight);
+      this.directionalLight = new THREE.DirectionalLight(0xffffff, 3);
       this.directionalLight.castShadow = true;
       this.directionalLight.shadow.mapSize.set(1024, 1024);
       this.directionalLight.shadow.camera.far = 15;
@@ -127,21 +142,81 @@ export default {
       this.directionalLight.shadow.camera.top = 7;
       this.directionalLight.shadow.camera.right = 7;
       this.directionalLight.shadow.camera.bottom = -7;
-      this.directionalLight.position.set(5, 5, 5);
+      this.directionalLight.position.set(0.25, 3, -2.25);
       this.scene.add(this.directionalLight);
     },
+    updateMaterials() {
+      this.scene.traverse(child => {
+        if (
+          child instanceof THREE.Mesh &&
+          child.material instanceof THREE.MeshStandardMaterial
+        ) {
+          child.material.envMap = this.envMap;
+          child.material.envMapIntensity = this.debugObj.envMapIntensity;
+          child.material.needsUpdate = true;
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+    },
     animate() {
-      const newTime = this.clock.getElapsedTime();
-      const deltaTime = newTime - this.oldTime;
-      this.oldTime = newTime;
-      if (this.animationMixer) {
-        this.animationMixer.update(deltaTime);
-      }
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
       window.requestAnimationFrame(this.animate);
     },
-    addGui() {},
+    createEnvMap() {
+      const cubeTextureLoader = new THREE.CubeTextureLoader();
+      this.envMap = cubeTextureLoader.load([
+        '/environmentMaps/0/px.jpg',
+        '/environmentMaps/0/nx.jpg',
+        '/environmentMaps/0/py.jpg',
+        '/environmentMaps/0/ny.jpg',
+        '/environmentMaps/0/pz.jpg',
+        '/environmentMaps/0/nz.jpg',
+      ]);
+      this.envMap.encoding = THREE.sRGBEncoding;
+    },
+    addGui() {
+      this.gui
+        .add(this.directionalLight, 'intensity')
+        .min(0)
+        .max(10)
+        .step(0.01);
+      this.gui
+        .add(this.directionalLight.position, 'x')
+        .min(-5)
+        .max(5)
+        .step(0.1);
+      this.gui
+        .add(this.directionalLight.position, 'y')
+        .min(-5)
+        .max(5)
+        .step(0.1);
+      this.gui
+        .add(this.directionalLight.position, 'z')
+        .min(-5)
+        .max(5)
+        .step(0.1);
+      this.gui
+        .add(this.debugObj, 'envMapIntensity')
+        .min(1)
+        .max(10)
+        .step(1)
+        .onChange(this.updateMaterials);
+      this.gui
+        .add(this.renderer, 'toneMapping', {
+          No: THREE.NoToneMapping,
+          Linear: THREE.LinearToneMapping,
+          Reinhard: THREE.ReinhardToneMapping,
+          Cineon: THREE.CineonToneMapping,
+          ACESFilmic: THREE.ACESFilmicToneMapping,
+        })
+        .onChange(() => {
+          this.renderer.toneMapping = parseInt(this.renderer.toneMapping);
+          this.updateMaterials();
+        });
+      this.gui.add(this.renderer, 'toneMappingExposure').min(1).max(10).step(1);
+    },
   },
 };
 </script>
