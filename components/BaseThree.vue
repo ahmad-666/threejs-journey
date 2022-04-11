@@ -6,6 +6,8 @@
 <script>
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import vertexShader from '~/shaders/wave/vertex.glsl';
+import fragmentShader from '~/shaders/wave/fragment.glsl';
 export default {
   data() {
     return {
@@ -17,19 +19,14 @@ export default {
       renderer: null,
       controls: null,
       gui: null,
-      parameters: {
-        count: 20000,
-        size: 0.01,
-        radius: 4,
-        branchNum: 5,
-        spin: 2,
-        randomnessPower: 5,
-        insideColor: 0xaa0077,
-        outsideColor: 0x0088bb,
-      },
       geometry: null,
       material: null,
-      points: null,
+      mesh: null,
+      clock: new THREE.Clock(),
+      debugObj: {
+        depthColor: '#371be9',
+        surfaceColor: '#7dd1c3',
+      },
     };
   },
   computed: {
@@ -44,7 +41,7 @@ export default {
     this.height = window.innerHeight;
     this.createScene();
     this.createCamera();
-    this.generateGalaxy();
+    this.createMesh();
     this.createRenderer();
     this.animate();
     this.addGui();
@@ -88,7 +85,7 @@ export default {
         0.1,
         100
       );
-      this.camera.position.z = 3;
+      this.camera.position.z = 1;
       this.controls = new OrbitControls(this.camera, this.$refs.canvas);
       this.controls.enableDamping = true;
       this.scene.add(this.camera);
@@ -101,108 +98,134 @@ export default {
       this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
       this.renderer.render(this.scene, this.camera);
     },
-    generateGalaxy() {
-      if (this.points) {
-        this.geometry.dispose();
-        this.material.dispose();
-        this.scene.remove(this.points);
-      }
-      this.geometry = new THREE.BufferGeometry();
-      const positions = new Float32Array(this.parameters.count * 3);
-      const colors = new Float32Array(this.parameters.count * 3);
-      const insideColor = new THREE.Color(this.parameters.insideColor);
-      const outsideColor = new THREE.Color(this.parameters.outsideColor);
-      for (let i = 0; i < this.parameters.count; i++) {
-        const index = i * 3;
-        const length = this.parameters.radius * Math.random();
-        const spinAngle = this.parameters.spin * length;
-        const angle =
-          2 *
-          Math.PI *
-          ((i % this.parameters.branchNum) / this.parameters.branchNum);
-        const randomnessX =
-          Math.pow(Math.random(), this.parameters.randomnessPower) *
-          (Math.random() < 0.5 ? 1 : -1);
-        const randomnessY =
-          Math.pow(Math.random(), this.parameters.randomnessPower) *
-          (Math.random() < 0.5 ? 1 : -1);
-        const randomnessZ =
-          Math.pow(Math.random(), this.parameters.randomnessPower) *
-          (Math.random() < 0.5 ? 1 : -1);
-        positions[index + 0] =
-          Math.sin(angle + spinAngle) * length + randomnessX;
-        positions[index + 1] = 0 + randomnessY;
-        positions[index + 2] =
-          Math.cos(angle + spinAngle) * length + randomnessZ;
-        const mixedColor = insideColor.clone();
-        mixedColor.lerp(outsideColor, length);
-        colors[index + 0] = mixedColor.r;
-        colors[index + 1] = mixedColor.g;
-        colors[index + 2] = mixedColor.b;
-      }
-      this.geometry.setAttribute(
-        'position',
-        new THREE.BufferAttribute(positions, 3)
-      );
-      this.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      this.material = new THREE.PointsMaterial({
-        size: this.parameters.size,
-        sizeAttenuation: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        vertexColors: true,
+    createMesh() {
+      this.geometry = new THREE.PlaneBufferGeometry(1, 1, 256, 256);
+      // use more subdivision so see more details
+      // anytime we want more details for textures,shaders,... use more subdivision
+      this.material = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        side: THREE.DoubleSide,
+        transparent: true,
+        uniforms: {
+          uWaveAmp: { value: 0.2 }, // amp of 1 is too big inside glsl
+          uWaveFreq: { value: new THREE.Vector2(5, 5) },
+          uWaveSpeed: { value: new THREE.Vector2(1, 1) },
+          uTime: { value: 0 },
+          uDepthColor: {
+            value: new THREE.Color(this.debugObj.depthColor),
+          },
+          uSurfaceColor: {
+            value: new THREE.Color(this.debugObj.surfaceColor),
+          },
+          uColorOffset: { value: 0.3 },
+          uColorMultiplier: { value: 1.6 },
+          uNoiseAmp: { value: 0.15 },
+          uNoiseFreq: { value: 15 },
+          uNoiseSpeed: { value: 0.2 },
+          uNoiseStrength: { value: 3 },
+        },
       });
-      this.points = new THREE.Points(this.geometry, this.material);
-      this.scene.add(this.points);
+      this.mesh = new THREE.Mesh(this.geometry, this.material);
+      this.mesh.rotation.x = -Math.PI * 0.4;
+      this.scene.add(this.mesh);
     },
     animate() {
+      this.material.uniforms.uTime.value = this.clock.getElapsedTime();
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
       window.requestAnimationFrame(this.animate);
     },
     addGui() {
       this.gui
-        .add(this.parameters, 'count')
-        .min(100)
-        .max(100000)
-        .step(100)
-        .onFinishChange(this.generateGalaxy);
+        .add(this.material.uniforms.uWaveAmp, 'value')
+        .min(0.01)
+        .max(1)
+        .step(0.01)
+        .name('waveAmp');
+      // we use .name because by default name will be name of key means 'value'
       this.gui
-        .add(this.parameters, 'size')
-        .min(0.001)
-        .max(0.05)
-        .step(0.001)
-        .onFinishChange(this.generateGalaxy);
+        .add(this.material.uniforms.uWaveFreq.value, 'x')
+        .min(0.1)
+        .max(50)
+        .step(0.5)
+        .name('waveFreq-X');
+      // this.material.uniforms.waveFreq.value is Vector2 so we need its .x and .y properties
       this.gui
-        .add(this.parameters, 'radius')
-        .min(1)
-        .max(3)
+        .add(this.material.uniforms.uWaveFreq.value, 'y')
+        .min(0.1)
+        .max(50)
+        .step(0.5)
+        .name('waveFreq-Y');
+      this.gui
+        .add(this.material.uniforms.uWaveSpeed.value, 'x')
+        .min(0)
+        .max(15)
         .step(0.1)
-        .onFinishChange(this.generateGalaxy);
+        .name('waveSpeed-X');
       this.gui
-        .add(this.parameters, 'branchNum')
-        .min(1)
-        .max(10)
+        .add(this.material.uniforms.uWaveSpeed.value, 'y')
+        .min(0)
+        .max(15)
+        .step(0.1)
+        .name('waveSpeed-Y');
+      this.gui
+        .addColor(this.debugObj, 'depthColor')
+        .name('depth-color')
+        .onChange(() => {
+          // we create debugObj for colors
+          // we use new THREE.Color for send to uniforms
+          // here we update debugObj and we must again use new THREE.Color to set value of uniform
+          // we can send uniform diretly to both vertex and fragment
+          // send attribute only to vertex ... send varying from vertex to fragment
+          this.material.uniforms.uDepthColor.value = new THREE.Color(
+            this.debugObj.depthColor
+          );
+        });
+      this.gui
+        .addColor(this.debugObj, 'surfaceColor')
+        .name('surface-color')
+        .onChange(() => {
+          this.material.uniforms.uSurfaceColor.value = new THREE.Color(
+            this.debugObj.surfaceColor
+          );
+        });
+      this.gui
+        .add(this.material.uniforms.uColorOffset, 'value')
+        .min(0)
+        .max(1)
+        .step(0.01)
+        .name('uColorOffset');
+      this.gui
+        .add(this.material.uniforms.uColorMultiplier, 'value')
+        .min(0)
+        .max(5)
+        .step(0.1)
+        .name('uColorMultiplier');
+      this.gui
+        .add(this.material.uniforms.uNoiseAmp, 'value')
+        .min(0)
+        .max(1)
+        .step(0.01)
+        .name('uNoiseAmp');
+      this.gui
+        .add(this.material.uniforms.uNoiseFreq, 'value')
+        .min(0)
+        .max(50)
         .step(1)
-        .onFinishChange(this.generateGalaxy);
+        .name('uNoiseFreq');
       this.gui
-        .add(this.parameters, 'spin')
-        .min(1)
-        .max(10)
-        .step(1)
-        .onFinishChange(this.generateGalaxy);
-      this.gui
-        .add(this.parameters, 'randomnessPower')
-        .min(1)
+        .add(this.material.uniforms.uNoiseSpeed, 'value')
+        .min(0)
         .max(20)
         .step(1)
-        .onFinishChange(this.generateGalaxy);
+        .name('uNoiseSpeed');
       this.gui
-        .addColor(this.parameters, 'insideColor')
-        .onFinishChange(this.generateGalaxy);
-      this.gui
-        .addColor(this.parameters, 'outsideColor')
-        .onFinishChange(this.generateGalaxy);
+        .add(this.material.uniforms.uNoiseStrength, 'value')
+        .min(0)
+        .max(10)
+        .step(1)
+        .name('uNoiseStrength');
     },
   },
 };

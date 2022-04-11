@@ -71,5 +71,12 @@ module.exports = {
       'three/examples/jsm/loaders/FontLoader',
       'three/examples/jsm/helpers/RectAreaLightHelper'
     ],
+    extend(config, { isDev, isClient }) {
+      config.module.rules.push({
+      test: /\.(glsl|vs|fs|vert|frag)$/,
+      exclude: '/node_modules/',
+      use: ['raw-loader'],
+      });
+    }
   },
 };
