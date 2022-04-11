@@ -1,4 +1,4 @@
-	uniform float uWaveAmp;
+uniform float uWaveAmp;
 uniform vec2 uWaveFreq;
 uniform float uTime;
 uniform vec2 uWaveSpeed;
